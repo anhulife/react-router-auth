@@ -11,8 +11,9 @@ import {
 ////////////////////////////////////////////////////////////
 // 1. Click the public page
 // 2. Click the protected page
-// 3. Log in
-// 4. Click the back button, note the URL each time
+// 3. Input username
+// 4. Log in
+// 5. Click the back button, note the URL each time
 
 function App() {
   return (
@@ -40,7 +41,7 @@ const fakeAuth = {
   username: null,
   async authenticate(username) {
     if (!username) {
-      await Promise.reject('username can\'t be empty!');
+      await Promise.reject("username can't be empty!");
     }
 
     this.isAuthenticated = true;
