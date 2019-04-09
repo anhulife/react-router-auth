@@ -137,7 +137,7 @@ function Login(props) {
         placeholder="username"
         type="text"
         value={username}
-        onInput={event => setUsername(event.target.value)}
+        onChange={event => setUsername(event.target.value)}
       />
       <button onClick={login}>Log in</button>
       <p>{error}</p>
