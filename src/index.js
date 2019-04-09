@@ -1,4 +1,4 @@
-import React, { Component, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import {
   BrowserRouter as Router,
@@ -109,7 +109,7 @@ function Login(props) {
   const [error, setError] = useState('');
   const { from } = props.location.state || { from: { pathname: '/' } };
 
-  const login = async () => {
+  const login = useCallback(async () => {
     try {
       await fakeAuth.authenticate(username);
     } catch (err) {
@@ -118,7 +118,7 @@ function Login(props) {
     }
 
     setRedirectToReferrer(true);
-  };
+  }, [username]);
 
   if (redirectToReferrer) {
     return (
