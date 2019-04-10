@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import {
   BrowserRouter as Router,
@@ -7,6 +7,8 @@ import {
   Redirect,
   withRouter,
 } from 'react-router-dom';
+import delay from 'delay';
+import { Random } from 'mockjs';
 
 ////////////////////////////////////////////////////////////
 // 1. Click the public page
@@ -37,23 +39,53 @@ function App() {
 }
 
 const fakeAuth = {
-  isAuthenticated: false,
+  isAuthenticated: null,
   username: null,
-  async authenticate(username) {
-    if (!username) {
-      await Promise.reject("username can't be empty!");
+  status: {
+    LOGIN: Symbol(),
+    NOT_LOGIN: Symbol(),
+  },
+  async checkLoginStatus() {
+    const { LOGIN, NOT_LOGIN } = this.status;
+
+    if (this.isAuthenticated) {
+      return LOGIN;
+    } else if (this.isAuthenticated !== null) {
+      return NOT_LOGIN;
     }
 
+    await delay(Random.integer(0.5e3, 2e3));
+
+    if (Random.boolean()) {
+      this.signin(Random.name());
+      return LOGIN;
+    }
+
+    this.isAuthenticated = false;
+    return NOT_LOGIN;
+  },
+  async authenticate(username) {
+    if (!username) {
+      return Promise.reject("username can't be empty!");
+    }
+
+    await delay(Random.integer(0.5e3, 2e3));
+
+    if (Random.boolean()) {
+      this.signin(username);
+    } else {
+      return Promise.reject(Random.sentence());
+    }
+  },
+  signin(username) {
     this.isAuthenticated = true;
     this.username = username;
-
-    await Promise.resolve();
   },
   async signout() {
+    await delay(Random.integer(0.5e3, 2e3));
+
     this.isAuthenticated = false;
     this.username = null;
-
-    await Promise.resolve();
   },
 };
 
@@ -105,20 +137,51 @@ function Protected() {
 
 function Login(props) {
   const [redirectToReferrer, setRedirectToReferrer] = useState(false);
+  const [isChecking, setIsChecking] = useState(
+    fakeAuth.isAuthenticated === null
+  );
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [username, setUsername] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const { from } = props.location.state || { from: { pathname: '/' } };
 
-  const login = useCallback(async () => {
-    try {
-      await fakeAuth.authenticate(username);
-    } catch (err) {
-      setError(err);
-      return;
-    }
+  useEffect(() => {
+    (async () => {
+      if (fakeAuth.isAuthenticated !== null) {
+        return;
+      }
 
-    setRedirectToReferrer(true);
-  }, [username]);
+      const loginStatus = await fakeAuth.checkLoginStatus();
+
+      if (loginStatus === fakeAuth.status.LOGIN) {
+        setRedirectToReferrer(true);
+      }
+
+      setIsChecking(false);
+    })();
+
+    return () => {};
+  }, []);
+
+  const login = useCallback(
+    async event => {
+      event.preventDefault();
+      setError(null);
+      setIsAuthenticating(true);
+
+      try {
+        await fakeAuth.authenticate(username);
+      } catch (err) {
+        setError(err);
+        return;
+      } finally {
+        setIsAuthenticating(false);
+      }
+
+      setRedirectToReferrer(true);
+    },
+    [username]
+  );
 
   if (redirectToReferrer) {
     return (
@@ -130,17 +193,26 @@ function Login(props) {
     );
   }
 
+  if (isChecking) {
+    return <p>Checking</p>;
+  }
+
   return (
     <div>
       <p>You must log in to view the page at {from.pathname}</p>
-      <input
-        placeholder="username"
-        type="text"
-        value={username}
-        onChange={event => setUsername(event.target.value)}
-      />
-      <button onClick={login}>Log in</button>
-      <p>{error}</p>
+      <form onSubmit={login}>
+        <input
+          placeholder="username"
+          type="text"
+          value={username}
+          disabled={isAuthenticating}
+          onChange={event => setUsername(event.target.value)}
+        />
+        <button disabled={isAuthenticating} type="submit">
+          Log in
+        </button>
+        <p>{error ? `Oops: ${error}` : ''}</p>
+      </form>
     </div>
   );
 }
