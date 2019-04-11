@@ -45,6 +45,7 @@ const fakeAuth = {
     LOGIN: Symbol(),
     NOT_LOGIN: Symbol(),
   },
+  _checkLoginTask: null,
   async checkLoginStatus() {
     const { LOGIN, NOT_LOGIN } = this.status;
 
@@ -54,15 +55,23 @@ const fakeAuth = {
       return NOT_LOGIN;
     }
 
-    await delay(Random.integer(0.5e3, 2e3));
-
-    if (Random.boolean()) {
-      this.signin(Random.name());
-      return LOGIN;
+    if (this._checkLoginTask) {
+      return await this._checkLoginTask;
     }
 
-    this.isAuthenticated = false;
-    return NOT_LOGIN;
+    this._checkLoginTask = (async () => {
+      await delay(Random.integer(0.5e3, 2e3));
+
+      if (Random.boolean()) {
+        this.signin(Random.name());
+        return LOGIN;
+      }
+
+      this.isAuthenticated = false;
+      return NOT_LOGIN;
+    })();
+
+    return await this._checkLoginTask;
   },
   async authenticate(username) {
     if (!username) {
@@ -146,12 +155,18 @@ function Login(props) {
   const { from } = props.location.state || { from: { pathname: '/' } };
 
   useEffect(() => {
+    let canceled = false;
+
     (async () => {
       if (fakeAuth.isAuthenticated !== null) {
         return;
       }
 
       const loginStatus = await fakeAuth.checkLoginStatus();
+
+      if (canceled) {
+        return;
+      }
 
       if (loginStatus === fakeAuth.status.LOGIN) {
         setRedirectToReferrer(true);
@@ -160,7 +175,9 @@ function Login(props) {
       setIsChecking(false);
     })();
 
-    return () => {};
+    return () => {
+      canceled = true;
+    };
   }, []);
 
   const login = useCallback(
